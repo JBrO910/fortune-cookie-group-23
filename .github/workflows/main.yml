@@ -125,3 +125,27 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: publish
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubeconfig
+        run: echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl --kubeconfig kubeconfig apply -f k8s/ -n workstation-2
+          kubectl --kubeconfig kubeconfig rollout restart deployment/backend -n workstation-2
+          kubectl --kubeconfig kubeconfig rollout restart deployment/frontend -n workstation-2
+          kubectl --kubeconfig kubeconfig rollout status deployment/backend -n workstation-2 --timeout=120s
+          kubectl --kubeconfig kubeconfig rollout status deployment/frontend -n workstation-2 --timeout=120s
+          kubectl --kubeconfig kubeconfig rollout status deployment/redis -n workstation-2 --timeout=120s
+
+      - name: Clean up kubeconfig
+        if: always()
+        run: rm -f kubeconfig
