@@ -1,0 +1,50 @@
+fullnameOverride: kube-prometheus-stack
+
+prometheusOperator:
+  namespaces:
+    releaseNamespace: true
+  admissionWebhooks:
+    enabled: false
+
+alertmanager:
+  enabled: false
+
+nodeExporter:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeApiServer:
+  enabled: false
+
+kubeStateMetrics:
+  enabled: true
+
+grafana:
+  enabled: true
+  service:
+    type: ClusterIP
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+  admin:
+    existingSecret: ""
+
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
