@@ -1,5 +1,13 @@
 # backend binary
 backend/backend
+backend/backend.exe
 
 # frontend binary
 frontend/frontend
+frontend/frontend.exe
+
+# test coverage
+frontend/coverage
+backend/coverage
+
+.idea
