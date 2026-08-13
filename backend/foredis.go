@@ -71,6 +71,11 @@ func initRedis(redisDNS string) {
 		return
 	}
 
+	if len(resKeys) == 0 {
+		fmt.Println("no fortunes found in redis, keeping in-memory defaults")
+		return
+	}
+
 	datastoreDefault = datastore{m: map[string]fortune{}, RWMutex: &sync.RWMutex{}}
 	fmt.Printf("*** loading redis fortunes:\n")
 	for _, key := range resKeys {
