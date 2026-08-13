@@ -1,5 +1,42 @@
 # Monitoring: kube-prometheus-stack
 
+## Summary for course staff
+
+**Question**: is there a shared Prometheus/Grafana already running for the course cluster, and if
+so, how do we (group `student-2`) get access to view it?
+
+**Why we're asking**: our `ServiceMonitor` objects (`monitoring.coreos.com/v1`, namespaced,
+created in `student-2` via our Helm chart) deploy and work successfully, which means the
+`ServiceMonitor` CustomResourceDefinition already exists on the cluster and is presumably being
+reconciled by a running Prometheus Operator. However, `student-2`'s service account
+(`system:serviceaccount:code-server-workstations:workstation-2-account`) has no cluster-scoped
+read access at all, so we can't discover where that Operator/Prometheus/Grafana actually live, or
+whether our metrics are actually being scraped. Evidence:
+
+```
+$ kubectl get crd | grep monitoring.coreos.com
+Error from server (Forbidden): ... cannot list resource "customresourcedefinitions" ... at the cluster scope
+
+$ kubectl get prometheus,alertmanager -A
+Error from server (Forbidden): ... cannot list resource "prometheuses" ... at the cluster scope
+Error from server (Forbidden): ... cannot list resource "alertmanagers" ... at the cluster scope
+
+$ helm list -n student-2
+NAME             NAMESPACE    REVISION  STATUS    CHART                  APP VERSION
+fortune-cookie   student-2    4         deployed  fortune-cookie-0.1.0   1.0.0
+```
+(no monitoring-related Helm release in our own namespace — consistent with it living elsewhere)
+
+**What we'd like from staff**: either (a) confirmation that a shared Prometheus/Grafana exists and
+the Service name/namespace or URL to reach it, or (b) if nothing shared exists yet and student
+groups are expected to self-host, the cluster-scoped permissions (create `ClusterRole`/
+`ClusterRoleBinding`) needed to install `kube-prometheus-stack`'s Prometheus Operator ourselves —
+see "Install" below for exactly what that requires.
+
+Full technical detail and the exact commands run follow below.
+
+---
+
 This installs Prometheus + Grafana + the Prometheus Operator into `student-2`, scoped as tightly
 as possible to that one namespace. It's a **separate Helm release** from the `fortune-cookie` app
 chart (`../chart/`) — deliberately not wired into CI's `deploy` job. It has cluster-scoped
