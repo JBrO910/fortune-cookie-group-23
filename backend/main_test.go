@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
 )
 
 type mockRedisConn struct {
@@ -70,12 +72,14 @@ func forceNoRedis(t *testing.T) {
 func forceRedisConn(t *testing.T, conn mockRedisConn) {
 	t.Helper()
 	prevUsingRedis := usingRedis
-	prevConn := dbLink
+	prevPool := dbPool
 	usingRedis = true
-	dbLink = &conn
+	dbPool = &redis.Pool{
+		Dial: func() (redis.Conn, error) { return &conn, nil },
+	}
 	t.Cleanup(func() {
 		usingRedis = prevUsingRedis
-		dbLink = prevConn
+		dbPool = prevPool
 	})
 }
 
