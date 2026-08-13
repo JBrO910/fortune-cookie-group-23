@@ -16,10 +16,23 @@ spec:
         app.kubernetes.io/name: backend
         app.kubernetes.io/part-of: fortune-cookie
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
       containers:
         - name: backend
           image: ghcr.io/jbro910/fortune-cookie-group-23-backend:latest
           imagePullPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 9000
           env:
