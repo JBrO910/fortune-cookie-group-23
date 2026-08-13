@@ -26,12 +26,10 @@ func newTestClient(fn roundTripFunc) *http.Client {
 func newMuxWithTestDeps(t *testing.T, client *http.Client) *http.ServeMux {
 	t.Helper()
 	prevClient := myClient
-	prevFatal := logFatal
 	prevTemplatePath := templatePath
 	prevStaticPath := staticPath
 
 	myClient = client
-	logFatal = func(v ...interface{}) {}
 
 	tmpDir := t.TempDir()
 	templatePath = filepath.Join(tmpDir, "fortunes.html")
@@ -39,7 +37,6 @@ func newMuxWithTestDeps(t *testing.T, client *http.Client) *http.ServeMux {
 
 	t.Cleanup(func() {
 		myClient = prevClient
-		logFatal = prevFatal
 		templatePath = prevTemplatePath
 		staticPath = prevStaticPath
 	})

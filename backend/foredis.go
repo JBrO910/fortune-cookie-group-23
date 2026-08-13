@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var dbLink redis.Conn
+var dbPool *redis.Pool
 var usingRedis = false
 
 var redisDial = redis.Dial
@@ -25,14 +25,37 @@ func initRedis(redisDNS string) {
 		fmt.Println("redis config not set")
 		return
 	}
+	
+	dbPool = &redis.Pool{
+		MaxIdle:     3,
+		IdleTimeout: 240 * time.Second,
+		Dial: func() (redis.Conn, error) {
+			return redisDial("tcp", fmt.Sprintf("%s:6379", redisDNS))
+		},
+		TestOnBorrow: func(c redis.Conn, t time.Time) error {
+			if time.Since(t) < time.Minute {
+				return nil
+			}
+			_, err := c.Do("PING")
+			return err
+		},
+	}
+
+	var conn redis.Conn
 	var err error
 	for i := 0; i < 5; i++ {
-		dbLink, err = redisDial("tcp", fmt.Sprintf("%s:6379", redisDNS))
-		if err == nil {
-			usingRedis = true
-			break
+		conn = dbPool.Get()
+		if conn.Err() == nil {
+			_, err = conn.Do("PING")
+			if err == nil {
+				usingRedis = true
+				break
+			}
+		} else {
+			err = conn.Err()
 		}
-		log.Printf("Attempt %d: redis connection failed: %s", i+1, err)
+		_ = conn.Close()
+		log.Printf("Attempt %d: redis connection failed: %v", i+1, err)
 		redisSleep(2 * time.Second)
 	}
 
@@ -40,8 +63,9 @@ func initRedis(redisDNS string) {
 		log.Println("Failed to connect to redis after 5 attempts")
 		return
 	}
+	defer func() { _ = conn.Close() }()
 
-	resKeys, err := redis.Values(dbLink.Do("hkeys", "fortunes"))
+	resKeys, err := redis.Values(conn.Do("hkeys", "fortunes"))
 	if err != nil {
 		fmt.Println("redis hkeys failed", err.Error())
 		return
@@ -50,7 +74,7 @@ func initRedis(redisDNS string) {
 	datastoreDefault = datastore{m: map[string]fortune{}, RWMutex: &sync.RWMutex{}}
 	fmt.Printf("*** loading redis fortunes:\n")
 	for _, key := range resKeys {
-		val, err := dbLink.Do("hget", "fortunes", key)
+		val, err := conn.Do("hget", "fortunes", key)
 		if err != nil {
 			fmt.Println("redis hget failed", err.Error())
 		} else {

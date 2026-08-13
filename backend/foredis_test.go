@@ -10,14 +10,14 @@ import (
 func preserveRedisGlobals(t *testing.T) {
 	t.Helper()
 	prevUsingRedis := usingRedis
-	prevConn := dbLink
+	prevPool := dbPool
 	prevDatastore := datastoreDefault
 	prevDial := redisDial
 	prevSleep := redisSleep
 
 	t.Cleanup(func() {
 		usingRedis = prevUsingRedis
-		dbLink = prevConn
+		dbPool = prevPool
 		datastoreDefault = prevDatastore
 		redisDial = prevDial
 		redisSleep = prevSleep
@@ -27,7 +27,7 @@ func preserveRedisGlobals(t *testing.T) {
 func TestInitRedisWithoutDNS(t *testing.T) {
 	preserveRedisGlobals(t)
 	usingRedis = false
-	dbLink = nil
+	dbPool = nil
 
 	dialCalls := 0
 	redisDial = func(network, address string, options ...redis.DialOption) (redis.Conn, error) {
@@ -48,7 +48,7 @@ func TestInitRedisWithoutDNS(t *testing.T) {
 func TestInitRedisDialFailsAfterRetries(t *testing.T) {
 	preserveRedisGlobals(t)
 	usingRedis = false
-	dbLink = nil
+	dbPool = nil
 
 	dialCalls := 0
 	sleepCalls := 0

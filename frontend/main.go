@@ -16,7 +16,6 @@ var BACKEND_DNS = getEnv("BACKEND_DNS", "localhost")
 var BACKEND_PORT = getEnv("BACKEND_PORT", "9000")
 var templatePath = "./templates/fortunes.html"
 var staticPath = "./static"
-var logFatal = log.Fatalln
 var httpListenAndServe = http.ListenAndServe
 
 type fortune struct {
@@ -42,8 +41,8 @@ func registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/random", func(w http.ResponseWriter, r *http.Request) {
 		resp, err := myClient.Get(fmt.Sprintf("http://%s:%s/fortunes/random", BACKEND_DNS, BACKEND_PORT))
 		if err != nil {
-			logFatal(err)
-			_, _ = fmt.Fprint(w, err)
+			log.Println("Error communicating with backend:", err)
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
 		}
 
@@ -59,8 +58,8 @@ func registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/all", func(w http.ResponseWriter, r *http.Request) {
 		resp, err := myClient.Get(fmt.Sprintf("http://%s:%s/fortunes", BACKEND_DNS, BACKEND_PORT))
 		if err != nil {
-			logFatal(err)
-			_, _ = fmt.Fprint(w, err)
+			log.Println("Error communicating with backend:", err)
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
 		}
 
@@ -73,8 +72,8 @@ func registerRoutes(mux *http.ServeMux) {
 		tmpl, err := template.ParseFiles(templatePath)
 
 		if err != nil {
-			logFatal(err)
-			_, _ = fmt.Fprint(w, err)
+			log.Println("Error parsing template:", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -101,8 +100,8 @@ func registerRoutes(mux *http.ServeMux) {
 
 		_, err := myClient.Post(postUrl, "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
-			logFatal(err)
-			_, _ = fmt.Fprint(w, err)
+			log.Println("Error communicating with backend:", err)
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
 		}
 
