@@ -15,6 +15,10 @@ spec:
       labels:
         app.kubernetes.io/name: backend
         app.kubernetes.io/part-of: fortune-cookie
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: "/metrics"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -72,5 +76,6 @@ spec:
   selector:
     app.kubernetes.io/name: backend
   ports:
-    - port: 9000
+    - name: metrics
+      port: 9000
       targetPort: 9000
