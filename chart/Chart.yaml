@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fortune-cookie
+description: Helm chart for the Fortune Cookie app (frontend, backend, redis)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

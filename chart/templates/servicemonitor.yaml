@@ -1,0 +1,23 @@
+{{- range $name, $svc := .Values.services }}
+{{- with $svc.serviceMonitor }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: fortune-cookie
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  endpoints:
+    - port: {{ .endpoint.port }}
+      path: {{ .endpoint.path }}
+      interval: {{ .endpoint.interval }}
+---
+{{- end }}
+{{- end }}

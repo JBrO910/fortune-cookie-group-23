@@ -1,0 +1,169 @@
+services:
+  backend:
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    image:
+      repository: ghcr.io/jbro910/fortune-cookie-group-23-backend
+      tag: latest
+      pullPolicy: Always
+    port: 9000
+    portName: metrics
+    service:
+      type: ClusterIP
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9000"
+      prometheus.io/path: /metrics
+    serviceMonitor:
+      labels:
+        release: kube-prometheus-stack
+      endpoint:
+        port: metrics
+        path: /metrics
+        interval: 15s
+    env:
+      - name: REDIS_DNS
+        value: redis
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+    containerSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 9000
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 9000
+      initialDelaySeconds: 3
+      periodSeconds: 5
+      failureThreshold: 3
+
+  frontend:
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    image:
+      repository: ghcr.io/jbro910/fortune-cookie-group-23-frontend
+      tag: latest
+      pullPolicy: Always
+    port: 8080
+    service:
+      type: NodePort
+    env:
+      - name: BACKEND_DNS
+        value: backend
+      - name: BACKEND_PORT
+        value: "9000"
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+    containerSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      initialDelaySeconds: 3
+      periodSeconds: 5
+      failureThreshold: 3
+
+  redis:
+    replicas: 1
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    image:
+      repository: redis
+      tag: alpine
+    port: 6379
+    service:
+      type: ClusterIP
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 1000
+      fsGroup: 1000
+    containerSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 1000
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    volumeMounts:
+      - name: data
+        mountPath: /data
+    volumes:
+      - name: data
+        emptyDir: {}
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+    livenessProbe:
+      tcpSocket:
+        port: 6379
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    readinessProbe:
+      tcpSocket:
+        port: 6379
+      initialDelaySeconds: 2
+      periodSeconds: 5
