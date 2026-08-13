@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -99,7 +99,7 @@ func TestAPIRandomSuccess(t *testing.T) {
 		}
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(`{"id":"1","message":"fortune!"}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"id":"1","message":"fortune!"}`)),
 			Header:     make(http.Header),
 		}, nil
 	})
@@ -136,7 +136,7 @@ func TestAPIAllSuccess(t *testing.T) {
 	client := newTestClient(func(req *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(`[{"id":"1","message":"first"},{"id":"2","message":"second"}]`)),
+			Body:       io.NopCloser(strings.NewReader(`[{"id":"1","message":"first"},{"id":"2","message":"second"}]`)),
 			Header:     make(http.Header),
 		}, nil
 	})
@@ -162,7 +162,7 @@ func TestAPIAllTemplateError(t *testing.T) {
 	client := newTestClient(func(req *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(`[]`)),
+			Body:       io.NopCloser(strings.NewReader(`[]`)),
 			Header:     make(http.Header),
 		}, nil
 	})
@@ -195,7 +195,7 @@ func TestAPIAllBackendError(t *testing.T) {
 
 func TestAPIAddMethodNotAllowed(t *testing.T) {
 	mux := newMuxWithTestDeps(t, newTestClient(func(req *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(strings.NewReader(``)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(``)), Header: make(http.Header)}, nil
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/add", nil)
@@ -218,7 +218,7 @@ func TestAPIAddSuccess(t *testing.T) {
 		if req.URL.Path != "/fortunes" {
 			t.Fatalf("unexpected path %s", req.URL.Path)
 		}
-		bodyBytes, err := ioutil.ReadAll(req.Body)
+		bodyBytes, err := io.ReadAll(req.Body)
 		if err != nil {
 			t.Fatalf("failed to read request body: %v", err)
 		}
@@ -227,7 +227,7 @@ func TestAPIAddSuccess(t *testing.T) {
 		}
 		return &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(`{}`)),
+			Body:       io.NopCloser(strings.NewReader(`{}`)),
 			Header:     make(http.Header),
 		}, nil
 	})
@@ -262,7 +262,7 @@ func TestAPIAddBackendError(t *testing.T) {
 
 func TestStaticFileHandler(t *testing.T) {
 	mux := newMuxWithTestDeps(t, newTestClient(func(req *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(strings.NewReader(``)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(``)), Header: make(http.Header)}, nil
 	}))
 
 	filePath := filepath.Join(staticPath, "index.html")

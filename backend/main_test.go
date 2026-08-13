@@ -462,7 +462,7 @@ func TestServeHTTPUnknownRoute(t *testing.T) {
 func TestMainReturnsWhenPortInUse(t *testing.T) {
 	ln, err := net.Listen("tcp", ":9000")
 	if err == nil {
-		defer ln.Close()
+		defer func() { _ = ln.Close() }()
 	}
 
 	done := make(chan struct{})
