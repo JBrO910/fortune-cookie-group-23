@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: fortune-cookie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/part-of: fortune-cookie
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: redis
+          image: redis:alpine
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 2
+            periodSeconds: 5
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: fortune-cookie
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
