@@ -47,8 +47,8 @@ func init() {
 		if err != nil {
 			fmt.Println("redis hget failed", err.Error())
 		} else {
-			idx := fmt.Sprintf("%s", key.([]byte))
-			msg := fmt.Sprintf("%s", val.([]byte))
+			idx := string(key.([]byte))
+			msg := string(val.([]byte))
 			datastoreDefault.m[idx] = fortune{ID: idx, Message: msg}
 			fmt.Printf("%s => %s\n", key, val)
 		}
