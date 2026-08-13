@@ -37,6 +37,11 @@ type fortuneHandler struct {
 	store *datastore
 }
 
+func HealthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("healthy"))
+}
+
 func (h *fortuneHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	switch {
@@ -171,6 +176,7 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", HealthzHandler)
 	fortuneH := &fortuneHandler{
 		store: &datastoreDefault,
 	}
@@ -178,5 +184,5 @@ func main() {
 	mux.Handle("/fortunes/", fortuneH)
 
 	err := http.ListenAndServe(":9000", mux)
-    fmt.Println("%v", err)
+	fmt.Printf("%v\n", err)
 }
