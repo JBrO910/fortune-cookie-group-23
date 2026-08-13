@@ -29,7 +29,7 @@ var myClient = &http.Client{Timeout: 10 * time.Second}
 
 func HealthzHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, "healthy")
+	_, _ = io.WriteString(w, "healthy")
 }
 
 func main() {
@@ -40,38 +40,44 @@ func main() {
 		resp, err := myClient.Get(fmt.Sprintf("http://%s:%s/fortunes/random", BACKEND_DNS, BACKEND_PORT))
 		if err != nil {
 			log.Fatalln(err)
-			fmt.Fprint(w, err)
+			_, _ = fmt.Fprint(w, err)
 			return
 		}
 
 		f := new(fortune)
-		json.NewDecoder(resp.Body).Decode(f)
+		if err := json.NewDecoder(resp.Body).Decode(f); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-		fmt.Fprint(w, f.Message)
-		return
+		_, _ = fmt.Fprint(w, f.Message)
 	})
 
 	http.HandleFunc("/api/all", func(w http.ResponseWriter, r *http.Request) {
 		resp, err := myClient.Get(fmt.Sprintf("http://%s:%s/fortunes", BACKEND_DNS, BACKEND_PORT))
 		if err != nil {
 			log.Fatalln(err)
-			fmt.Fprint(w, err)
+			_, _ = fmt.Fprint(w, err)
 			return
 		}
 
 		fortunes := new([]fortune)
-		json.NewDecoder(resp.Body).Decode(fortunes)
+		if err := json.NewDecoder(resp.Body).Decode(fortunes); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		tmpl, err := template.ParseFiles("./templates/fortunes.html")
 
 		if err != nil {
 			log.Fatalln(err)
-			fmt.Fprint(w, err)
+			_, _ = fmt.Fprint(w, err)
 			return
 		}
 
-		tmpl.Execute(w, fortunes)
-		return
+		if err := tmpl.Execute(w, fortunes); err != nil {
+			log.Println(err)
+		}
 	})
 
 	http.HandleFunc("/api/add", func(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +88,10 @@ func main() {
 		}
 
 		f := new(newFortune)
-		json.NewDecoder(r.Body).Decode(f)
+		if err := json.NewDecoder(r.Body).Decode(f); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		var postUrl = fmt.Sprintf("http://%s:%s/fortunes", BACKEND_DNS, BACKEND_PORT)
 		var jsonStr = []byte(fmt.Sprintf(`{"id": "%d", "message": "%s"}`, rand.Intn(10000), f.Message))
@@ -90,13 +99,11 @@ func main() {
 		_, err := myClient.Post(postUrl, "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
 			log.Fatalln(err)
-			fmt.Fprint(w, err)
+			_, _ = fmt.Fprint(w, err)
 			return
 		}
 
-		fmt.Fprint(w, "Cookie added!")
-
-		return
+		_, _ = fmt.Fprint(w, "Cookie added!")
 	})
 
 	http.Handle("/", http.FileServer(http.Dir("./static")))
