@@ -243,3 +243,37 @@ jobs:
             rm -f /tmp/frontend-portforward.pid
           fi
           rm -f kubeconfig
+
+  stress-test:
+    name: Stress test (Siege)
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push'
+    steps:
+      - name: Set up kubeconfig
+        run: echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
+
+      - name: Port-forward frontend
+        run: |
+          kubectl --kubeconfig kubeconfig port-forward svc/frontend 8080:8080 -n student-2 >/tmp/frontend-portforward.log 2>&1 &
+          echo $! > /tmp/frontend-portforward.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null; then
+              echo "frontend is up"
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/healthz >/dev/null || (echo "healthz failed, port-forward log:"; sed -n '1,200p' /tmp/frontend-portforward.log; exit 1)
+
+      - name: Run Siege stress test
+        run: docker run --rm --network host rufus/siege-engine siege -c 20 -t 1M http://127.0.0.1:8080/
+
+      - name: Clean up kubeconfig
+        if: always()
+        run: |
+          if [ -f /tmp/frontend-portforward.pid ]; then
+            kill $(cat /tmp/frontend-portforward.pid) || true
+            rm -f /tmp/frontend-portforward.pid
+          fi
+          rm -f kubeconfig
