@@ -14,6 +14,10 @@ import (
 
 var BACKEND_DNS = getEnv("BACKEND_DNS", "localhost")
 var BACKEND_PORT = getEnv("BACKEND_PORT", "9000")
+var templatePath = "./templates/fortunes.html"
+var staticPath = "./static"
+var logFatal = log.Fatalln
+var httpListenAndServe = http.ListenAndServe
 
 type fortune struct {
 	ID      string `json:"id" redis:"id"`
@@ -32,14 +36,13 @@ func HealthzHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, "healthy")
 }
 
-func main() {
+func registerRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/healthz", HealthzHandler)
 
-	http.HandleFunc("/healthz", HealthzHandler)
-
-	http.HandleFunc("/api/random", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/random", func(w http.ResponseWriter, r *http.Request) {
 		resp, err := myClient.Get(fmt.Sprintf("http://%s:%s/fortunes/random", BACKEND_DNS, BACKEND_PORT))
 		if err != nil {
-			log.Fatalln(err)
+			logFatal(err)
 			_, _ = fmt.Fprint(w, err)
 			return
 		}
@@ -53,10 +56,10 @@ func main() {
 		_, _ = fmt.Fprint(w, f.Message)
 	})
 
-	http.HandleFunc("/api/all", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/all", func(w http.ResponseWriter, r *http.Request) {
 		resp, err := myClient.Get(fmt.Sprintf("http://%s:%s/fortunes", BACKEND_DNS, BACKEND_PORT))
 		if err != nil {
-			log.Fatalln(err)
+			logFatal(err)
 			_, _ = fmt.Fprint(w, err)
 			return
 		}
@@ -67,10 +70,10 @@ func main() {
 			return
 		}
 
-		tmpl, err := template.ParseFiles("./templates/fortunes.html")
+		tmpl, err := template.ParseFiles(templatePath)
 
 		if err != nil {
-			log.Fatalln(err)
+			logFatal(err)
 			_, _ = fmt.Fprint(w, err)
 			return
 		}
@@ -80,7 +83,7 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/api/add", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/add", func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != "POST" {
 			http.Error(w, "Use POST", http.StatusMethodNotAllowed)
@@ -98,7 +101,7 @@ func main() {
 
 		_, err := myClient.Post(postUrl, "application/json", bytes.NewBuffer(jsonStr))
 		if err != nil {
-			log.Fatalln(err)
+			logFatal(err)
 			_, _ = fmt.Fprint(w, err)
 			return
 		}
@@ -106,7 +109,11 @@ func main() {
 		_, _ = fmt.Fprint(w, "Cookie added!")
 	})
 
-	http.Handle("/", http.FileServer(http.Dir("./static")))
-	err := http.ListenAndServe(":8080", nil)
+	mux.Handle("/", http.FileServer(http.Dir(staticPath)))
+}
+
+func main() {
+	registerRoutes(http.DefaultServeMux)
+	err := httpListenAndServe(":8080", nil)
 	fmt.Printf("%v", err)
 }
