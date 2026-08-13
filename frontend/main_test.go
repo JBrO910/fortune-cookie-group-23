@@ -64,6 +64,28 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestMetrics(t *testing.T) {
+	mux := newMuxWithTestDeps(t, http.DefaultClient)
+
+	// Trigger a metrics-wrapped route first: *Vec collectors emit no output
+	// until at least one labelled observation has been recorded.
+	mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Fatalf("expected text/plain content type, got %q", ct)
+	}
+	if !strings.Contains(rr.Body.String(), "fortune_http_requests_total") {
+		t.Fatalf("expected metrics output to contain fortune_http_requests_total, got %q", rr.Body.String())
+	}
+}
+
 func TestGetEnv(t *testing.T) {
 	const key = "TEST_FRONTEND_ENV_KEY"
 	original, hadOriginal := os.LookupEnv(key)

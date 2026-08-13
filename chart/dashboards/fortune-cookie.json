@@ -1,0 +1,100 @@
+{
+  "title": "Fortune Cookie",
+  "uid": "fortune-cookie",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (job, path) (rate(fortune_http_requests_total[5m]))",
+          "legendFormat": "{{job}} {{path}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Error rate (5xx)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(fortune_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(fortune_http_requests_total[5m]))",
+          "legendFormat": "error rate",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Request latency (p50 / p95)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, job, path) (rate(fortune_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50 {{job}} {{path}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, job, path) (rate(fortune_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{job}} {{path}}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Fortunes in store",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "fortune_store_count",
+          "legendFormat": "fortune_store_count",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
