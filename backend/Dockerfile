@@ -11,5 +11,8 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/backend .
 
+RUN adduser -D -H appuser
+USER appuser
+
 EXPOSE 9000
 CMD ["./backend"]

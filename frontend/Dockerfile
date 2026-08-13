@@ -13,5 +13,8 @@ COPY --from=builder /app/frontend .
 COPY static ./static
 COPY templates ./templates
 
+RUN adduser -D -H appuser
+USER appuser
+
 EXPOSE 8080
 CMD ["./frontend"]
