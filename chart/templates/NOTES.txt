@@ -1,0 +1,7 @@
+Fortune Cookie deployed.
+
+Frontend is exposed via NodePort. On minikube, access it with:
+  minikube service frontend -n {{ .Release.Namespace }}
+
+Or via port-forward, on any cluster:
+  kubectl port-forward svc/frontend 8080:8080 -n {{ .Release.Namespace }}
