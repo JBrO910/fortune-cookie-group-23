@@ -90,6 +90,8 @@ jobs:
       - name: Set image name
         run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')-${{ matrix.service }}" >> "$GITHUB_ENV"
 
+      - uses: docker/setup-qemu-action@v3
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
@@ -103,6 +105,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./${{ matrix.service }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.IMAGE }}:latest
