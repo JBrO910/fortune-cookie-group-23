@@ -35,6 +35,21 @@ jobs:
       - name: Test
         run: make test-${{ matrix.service }}
 
+      - name: Test with coverage
+        run: |
+          cd ${{ matrix.service }}
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+          COVERAGE=$(go tool cover -func=coverage.out | awk '/total:/ {print $3}' | tr -d '%')
+          echo "Coverage for ${{ matrix.service }}: ${COVERAGE}%"
+          awk -v c="$COVERAGE" 'BEGIN { if (c < 80) exit 1 }'
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.service }}
+          path: ${{ matrix.service }}/coverage.out
+
   lint:
     name: Lint (${{ matrix.service }})
     runs-on: ubuntu-latest
