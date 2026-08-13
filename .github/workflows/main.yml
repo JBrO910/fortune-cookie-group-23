@@ -157,6 +157,26 @@ jobs:
       - name: Set up kubeconfig
         run: echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
 
+      - name: Capture current release revision
+        id: release_state
+        run: |
+          set -euo pipefail
+
+          previous_revision=""
+          if helm status fortune-cookie \
+            --kubeconfig kubeconfig \
+            --namespace student-2 >/dev/null 2>&1; then
+            previous_revision=$(helm history fortune-cookie \
+              --kubeconfig kubeconfig \
+              --namespace student-2 \
+              --output json | python3 -c 'import json, sys
+history = json.load(sys.stdin)
+deployed = [row for row in history if row.get("status") == "deployed"]
+print(deployed[-1]["revision"] if deployed else "")')
+          fi
+
+          echo "previous_revision=$previous_revision" >> "$GITHUB_OUTPUT"
+
       - name: Deploy to Kubernetes
         run: |
           helm upgrade --install fortune-cookie ./chart \
@@ -164,7 +184,7 @@ jobs:
             --namespace student-2 \
             --set services.backend.image.tag=${{ github.sha }} \
             --set services.frontend.image.tag=${{ github.sha }} \
-            --wait --timeout=180s
+            --wait --timeout=180s --atomic
 
       - name: "Debug: show pods/service/endpoints and frontend logs"
         run: |
@@ -181,6 +201,7 @@ jobs:
           fi
 
       - name: Smoke test deployed app
+        id: smoke_test
         run: |
           chmod +x scripts/smoke-test.sh
           kubectl --kubeconfig kubeconfig port-forward svc/frontend 8080:8080 -n student-2 >/tmp/frontend-portforward.log 2>&1 &
@@ -200,6 +221,22 @@ jobs:
             echo "healthz failed, port-forward log:"; sed -n '1,200p' /tmp/frontend-portforward.log; exit 1
           fi
           ./scripts/smoke-test.sh http://127.0.0.1:8080 || (echo "smoke-test failed, port-forward log:"; sed -n '1,200p' /tmp/frontend-portforward.log; exit 1)
+
+      - name: Roll back failed deployment
+        if: failure() && steps.smoke_test.outcome == 'failure'
+        run: |
+          set -euo pipefail
+
+          if [ -n "${{ steps.release_state.outputs.previous_revision }}" ]; then
+            helm rollback fortune-cookie "${{ steps.release_state.outputs.previous_revision }}" \
+              --kubeconfig kubeconfig \
+              --namespace student-2 \
+              --wait --timeout=180s
+          else
+            helm uninstall fortune-cookie \
+              --kubeconfig kubeconfig \
+              --namespace student-2
+          fi
 
       - name: Clean up kubeconfig
         if: always()
