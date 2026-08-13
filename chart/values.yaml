@@ -1,3 +1,6 @@
+grafanaDashboard:
+  enabled: true
+
 services:
   backend:
     replicas: 2
@@ -75,8 +78,20 @@ services:
       tag: latest
       pullPolicy: Always
     port: 8080
+    portName: metrics
     service:
       type: NodePort
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+      prometheus.io/path: /metrics
+    serviceMonitor:
+      labels:
+        release: kube-prometheus-stack
+      endpoint:
+        port: metrics
+        path: /metrics
+        interval: 15s
     env:
       - name: BACKEND_DNS
         value: backend

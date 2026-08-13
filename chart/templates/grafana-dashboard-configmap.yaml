@@ -1,0 +1,12 @@
+{{- if .Values.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fortune-cookie-dashboard
+  labels:
+    app.kubernetes.io/part-of: fortune-cookie
+    grafana_dashboard: "1"
+data:
+  fortune-cookie.json: |-
+    {{- .Files.Get "dashboards/fortune-cookie.json" | nindent 4 }}
+{{- end }}
