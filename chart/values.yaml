@@ -1,6 +1,11 @@
 services:
   backend:
-    replicas: 1
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
     image:
       repository: ghcr.io/jbro910/fortune-cookie-group-23-backend
       tag: latest
@@ -47,7 +52,12 @@ services:
       failureThreshold: 3
 
   frontend:
-    replicas: 1
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
     image:
       repository: ghcr.io/jbro910/fortune-cookie-group-23-frontend
       tag: latest
@@ -97,6 +107,11 @@ services:
 
   redis:
     replicas: 1
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
     image:
       repository: redis
       tag: alpine

@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/part-of: fortune-cookie
 spec:
   replicas: {{ $svc.replicas | default 1 }}
+  {{- with $svc.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
