@@ -60,7 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -73,11 +72,3 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
-          format: sarif
-          output: trivy-results.sarif
-
-      - name: Upload Trivy results to GitHub Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
