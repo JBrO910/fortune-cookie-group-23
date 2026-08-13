@@ -6,7 +6,13 @@ import (
 	"math/rand"
 	"net/http"
 	"regexp"
+	"strconv"
 	"sync"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -14,6 +20,33 @@ var (
 	getFortuneRe    = regexp.MustCompile(`^/fortunes[/](\d+)$`)
 	randomFortuneRe = regexp.MustCompile(`^/fortunes[/]random$`)
 	createFortuneRe = regexp.MustCompile(`^/fortunes[/]*$`)
+)
+
+// --- Prometheus metrics ---
+var (
+	httpRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "fortune_http_requests_total",
+			Help: "Total number of HTTP requests, labelled by method, path and status code.",
+		},
+		[]string{"method", "path", "status"},
+	)
+
+	httpRequestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "fortune_http_request_duration_seconds",
+			Help:    "HTTP request latency in seconds.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "path"},
+	)
+
+	fortuneCount = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "fortune_store_count",
+			Help: "Current number of fortunes in the in-memory store.",
+		},
+	)
 )
 
 type fortune struct {
@@ -42,25 +75,45 @@ func HealthzHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("healthy"))
 }
 
+// responseWriter wraps http.ResponseWriter to capture the status code for metrics.
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func newResponseWriter(w http.ResponseWriter) *responseWriter {
+	return &responseWriter{w, http.StatusOK}
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
 func (h *fortuneHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
+	start := time.Now()
+	rw := newResponseWriter(w)
+	rw.Header().Set("content-type", "application/json")
+
+	path := r.URL.Path // capture before possible mutation (Random rewrites it)
+
 	switch {
 	case r.Method == http.MethodGet && listFortuneRe.MatchString(r.URL.Path):
-		h.List(w, r)
-		return
+		h.List(rw, r)
 	case r.Method == http.MethodGet && getFortuneRe.MatchString(r.URL.Path):
-		h.Get(w, r)
-		return
+		h.Get(rw, r)
 	case r.Method == http.MethodGet && randomFortuneRe.MatchString(r.URL.Path):
-		h.Random(w, r)
-		return
+		h.Random(rw, r)
 	case r.Method == http.MethodPost && createFortuneRe.MatchString(r.URL.Path):
-		h.Create(w, r)
-		return
+		h.Create(rw, r)
 	default:
-		notFound(w, r)
-		return
+		notFound(rw, r)
 	}
+
+	duration := time.Since(start).Seconds()
+	statusStr := strconv.Itoa(rw.statusCode)
+	httpRequestsTotal.WithLabelValues(r.Method, path, statusStr).Inc()
+	httpRequestDuration.WithLabelValues(r.Method, path).Observe(duration)
 }
 
 func (h *fortuneHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +201,10 @@ func (h *fortuneHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	h.store.Lock()
 	h.store.m[u.ID] = u
+	count := len(h.store.m)
 	h.store.Unlock()
+
+	fortuneCount.Set(float64(count))
 
 	if usingRedis {
 		conn := dbPool.Get()
@@ -179,8 +235,12 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Seed the fortune count gauge with the initial store size.
+	fortuneCount.Set(float64(len(datastoreDefault.m)))
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", HealthzHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 	fortuneH := &fortuneHandler{
 		store: &datastoreDefault,
 	}
