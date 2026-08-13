@@ -6,32 +6,51 @@ chart (`../chart/`) — deliberately not wired into CI's `deploy` job. It has cl
 dependencies (CRDs, ClusterRoles) that need a human watching the output, not an unattended install
 on every push.
 
-## 1. Pre-flight check — do this first, every time
+## 1. Pre-flight check — CONFIRMED: skip step 2, this cluster is shared/managed
 
-Backend's `ServiceMonitor` (`../chart/templates/servicemonitor.yaml`) already deploys successfully
-to `student-2` today, which proves the `ServiceMonitor` CRD already exists there — installed by
-someone. Before running anything below, find out who/what:
+Already run and confirmed on `student-2` (2026-08-14):
 
-```bash
-kubectl get crd | grep monitoring.coreos.com
-kubectl get crd servicemonitors.monitoring.coreos.com -o jsonpath='{.metadata.annotations}{"\n"}'
-helm list -n student-2
-kubectl get prometheus,alertmanager -A
+```
+$ kubectl get crd | grep monitoring.coreos.com
+Error from server (Forbidden): ... cannot list resource "customresourcedefinitions" ... at the cluster scope
+
+$ kubectl get crd servicemonitors.monitoring.coreos.com -o jsonpath='...'
+Error from server (Forbidden): ... cannot get resource "customresourcedefinitions" ... at the cluster scope
+
+$ helm list -n student-2
+NAME             NAMESPACE    REVISION  STATUS    CHART                  APP VERSION
+fortune-cookie   student-2    4         deployed  fortune-cookie-0.1.0   1.0.0
+
+$ kubectl get prometheus,alertmanager -A
+Error from server (Forbidden): ... cannot list resource "prometheuses" ... at the cluster scope
+Error from server (Forbidden): ... cannot list resource "alertmanagers" ... at the cluster scope
 ```
 
-Read the second command's output:
-- If it shows `meta.helm.sh/release-name` / `app.kubernetes.io/managed-by: Helm` for a release
-  that's live and working (check `helm list` for it) — **stop, do not install anything below.**
-  Something already owns this cluster-wide. Just point `../chart/values.yaml`'s
-  `serviceMonitor.labels.release` at whatever that release is actually named (if not already
-  `kube-prometheus-stack`), and get Grafana access from whoever runs it.
-- If it shows Helm ownership metadata for a release that's *not* in `helm list -n student-2` (i.e.
-  a different namespace, or gone) — that's a partial/abandoned install. Don't force-adopt or delete
-  cluster-scoped objects on a shared cluster unilaterally; coordinate with whoever has access first.
-- If the CRD has no Helm ownership annotations at all, or the annotation inspection genuinely comes
-  back empty — proceed to step 2.
+**Conclusion**: `workstation-2-account` has zero cluster-scoped read access (can't list/get CRDs,
+can't list `Prometheus`/`Alertmanager` objects anywhere) — but backend's `ServiceMonitor`
+(`../chart/templates/servicemonitor.yaml`) has been deploying successfully to `student-2` this
+whole project. Those are two different RBAC grants: the CRD *definition*
+(`customresourcedefinitions.apiextensions.k8s.io`, always cluster-scoped, forbidden to us) versus
+*instances* of the custom type it defines (`servicemonitors.monitoring.coreos.com`, scoped
+`Namespaced` by that CRD, and something we do have rights to create within `student-2`). That's
+not a coincidence — it's a deliberate platform design: **course staff already installed the CRDs
+and Prometheus Operator cluster-wide**, and scoped student accounts down to "you may create
+`ServiceMonitor`/`PodMonitor` objects in your own namespace, nothing more." `helm list -n
+student-2` showing only our own `fortune-cookie` release fits too — a shared install wouldn't live
+in a student namespace at all.
 
-## 2. Install
+**Action**: do not run step 2 below — it will fail identically (`Forbidden ... at the cluster
+scope`) and there's nothing to fix on our end. Our `ServiceMonitor`s are very likely *already*
+being scraped by that shared Prometheus right now (the CRD being functional at all implies
+something is actively reconciling it). What's missing is visibility, not infrastructure — **ask
+course staff / TAs for the shared Grafana/Prometheus URL or access details** for the course
+cluster. Once you have that, skip straight to step 3/4 below using whatever Service name and
+namespace they give you instead of `kube-prometheus-stack-grafana`/`student-2`.
+
+The values file and install command below are kept for reference (e.g. if you ever work with a
+cluster where you *do* have cluster-admin), not because we expect to run them here.
+
+## 2. Install (not applicable on `student-2` — see confirmed finding above)
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -62,10 +81,15 @@ once, cluster-wide, with individual groups only ever adding namespaced `ServiceM
 
 ## 3. Access Grafana
 
-Deliberately **not** exposed via NodePort (see `grafana.service.type: ClusterIP` in the values
-file) — unlike the app's `frontend`, Grafana is an internal tool with its own login, and NodePort
-would make it reachable by anyone who can address any node on this shared cluster. Use
-port-forward, which requires already holding `student-2`-scoped credentials:
+On `student-2`: get the actual Service name/namespace from course staff (see confirmed finding
+above — we can't discover this ourselves without cluster-scoped read access), then port-forward to
+whatever they tell you instead of the placeholder below.
+
+If you ever do run your own install (step 2, on a cluster where you have cluster-admin): deliberately
+**not** exposed via NodePort (see `grafana.service.type: ClusterIP` in the values file) — unlike the
+app's `frontend`, Grafana is an internal tool with its own login, and NodePort would make it
+reachable by anyone who can address any node on a shared cluster. Use port-forward, which requires
+already holding namespace-scoped credentials:
 
 ```bash
 kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n student-2
@@ -90,13 +114,16 @@ kubectl get secret grafana-admin-credentials -n student-2 -o jsonpath='{.data.ad
 
 ## 4. Verify
 
-```bash
-kubectl get pods -n student-2 | grep -E "prometheus|grafana"
-```
-Both should be `Running`. Then, via the port-forward from step 3, or a similar one to Prometheus
-itself (`kubectl port-forward svc/kube-prometheus-stack-prometheus 9090:9090 -n student-2`):
+On `student-2`, don't bother with `kubectl get pods -n student-2 | grep prometheus` — the shared
+Prometheus/Grafana almost certainly run in a different namespace we can't see, per the confirmed
+finding above. Once course staff give you access (its own namespace, its own Service names), via
+that port-forward:
 
 - Prometheus UI → Status → Targets: `backend` and `frontend` should show as `UP`.
 - Grafana → Dashboards: a "Fortune Cookie" dashboard should already be present (auto-discovered via
   the `grafana_dashboard: "1"`-labelled ConfigMap the app chart ships), showing live request rate,
   error rate, p50/p95 latency, and current fortune count.
+
+If you ever run your own install (step 2, elsewhere), the same checks apply against
+`kube-prometheus-stack-prometheus`/`kube-prometheus-stack-grafana` in whatever namespace you
+installed into.
