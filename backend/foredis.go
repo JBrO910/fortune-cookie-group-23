@@ -54,7 +54,7 @@ func initRedis(redisDNS string) {
 		} else {
 			err = conn.Err()
 		}
-		conn.Close()
+		_ = conn.Close()
 		log.Printf("Attempt %d: redis connection failed: %v", i+1, err)
 		redisSleep(2 * time.Second)
 	}
@@ -63,7 +63,7 @@ func initRedis(redisDNS string) {
 		log.Println("Failed to connect to redis after 5 attempts")
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	resKeys, err := redis.Values(conn.Do("hkeys", "fortunes"))
 	if err != nil {
