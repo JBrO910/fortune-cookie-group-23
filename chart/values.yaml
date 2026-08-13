@@ -11,8 +11,20 @@ services:
       tag: latest
       pullPolicy: Always
     port: 9000
+    portName: metrics
     service:
       type: ClusterIP
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9000"
+      prometheus.io/path: /metrics
+    serviceMonitor:
+      labels:
+        release: kube-prometheus-stack
+      endpoint:
+        port: metrics
+        path: /metrics
+        interval: 15s
     env:
       - name: REDIS_DNS
         value: redis

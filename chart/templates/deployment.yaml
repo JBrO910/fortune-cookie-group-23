@@ -20,6 +20,10 @@ spec:
       labels:
         app.kubernetes.io/name: {{ $name }}
         app.kubernetes.io/part-of: fortune-cookie
+      {{- with $svc.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       securityContext:
         {{- toYaml $svc.securityContext | nindent 8 }}

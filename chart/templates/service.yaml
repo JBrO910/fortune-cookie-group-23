@@ -13,5 +13,8 @@ spec:
   ports:
     - port: {{ $svc.port }}
       targetPort: {{ $svc.port }}
+      {{- with $svc.portName }}
+      name: {{ . }}
+      {{- end }}
 ---
 {{- end }}
