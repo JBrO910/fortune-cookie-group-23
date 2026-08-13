@@ -101,6 +101,21 @@ func TestGetEnv(t *testing.T) {
 	}
 }
 
+func TestHealthz(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(HealthzHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	if rr.Body.String() != "healthy" {
+		t.Fatalf("expected body %q, got %q", "healthy", rr.Body.String())
+	}
+}
+
 func TestServeHTTPList(t *testing.T) {
 	forceNoRedis(t)
 

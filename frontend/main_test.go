@@ -172,7 +172,8 @@ func TestAPIAllTemplateError(t *testing.T) {
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, req)
 
-	if !strings.Contains(strings.ToLower(rr.Body.String()), "cannot find") {
+	errText := strings.ToLower(rr.Body.String())
+	if !strings.Contains(errText, "cannot find") && !strings.Contains(errText, "no such file or directory") {
 		t.Fatalf("expected template parse error in body, got %q", rr.Body.String())
 	}
 }
