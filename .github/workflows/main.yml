@@ -126,6 +126,22 @@ jobs:
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
 
+  helm-lint:
+    name: Helm lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
+      - name: Lint chart
+        run: helm lint ./chart
+
+      - name: Render chart
+        run: helm template ./chart
+
   deploy:
     name: Deploy to Kubernetes
     runs-on: ubuntu-latest
@@ -134,17 +150,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.6
+
       - name: Set up kubeconfig
         run: echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
 
       - name: Deploy to Kubernetes
         run: |
-          kubectl --kubeconfig kubeconfig apply -f k8s/ -n student-2
-          kubectl --kubeconfig kubeconfig rollout restart deployment/backend -n student-2
-          kubectl --kubeconfig kubeconfig rollout restart deployment/frontend -n student-2
-          kubectl --kubeconfig kubeconfig rollout status deployment/backend -n student-2 --timeout=120s
-          kubectl --kubeconfig kubeconfig rollout status deployment/frontend -n student-2 --timeout=120s
-          kubectl --kubeconfig kubeconfig rollout status deployment/redis -n student-2 --timeout=120s
+          helm upgrade --install fortune-cookie ./chart \
+            --kubeconfig kubeconfig \
+            --namespace student-2 \
+            --set services.backend.image.tag=${{ github.sha }} \
+            --set services.frontend.image.tag=${{ github.sha }} \
+            --wait --timeout=180s
 
       - name: Clean up kubeconfig
         if: always()
