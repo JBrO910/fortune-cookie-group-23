@@ -18,7 +18,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/jbro910/fortune-cookie-group-23-backend:2ca44c1e51c1478ad79d8213bfbead23a65ad7d7
+          image: ghcr.io/jbro910/fortune-cookie-group-23-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 9000
           env:
