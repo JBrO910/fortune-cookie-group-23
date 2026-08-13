@@ -139,12 +139,12 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          kubectl --kubeconfig kubeconfig apply -f k8s/ -n workstation-2
-          kubectl --kubeconfig kubeconfig rollout restart deployment/backend -n workstation-2
-          kubectl --kubeconfig kubeconfig rollout restart deployment/frontend -n workstation-2
-          kubectl --kubeconfig kubeconfig rollout status deployment/backend -n workstation-2 --timeout=120s
-          kubectl --kubeconfig kubeconfig rollout status deployment/frontend -n workstation-2 --timeout=120s
-          kubectl --kubeconfig kubeconfig rollout status deployment/redis -n workstation-2 --timeout=120s
+          kubectl --kubeconfig kubeconfig apply -f k8s/ -n student-2
+          kubectl --kubeconfig kubeconfig rollout restart deployment/backend -n student-2
+          kubectl --kubeconfig kubeconfig rollout restart deployment/frontend -n student-2
+          kubectl --kubeconfig kubeconfig rollout status deployment/backend -n student-2 --timeout=120s
+          kubectl --kubeconfig kubeconfig rollout status deployment/frontend -n student-2 --timeout=120s
+          kubectl --kubeconfig kubeconfig rollout status deployment/redis -n student-2 --timeout=120s
 
       - name: Clean up kubeconfig
         if: always()
