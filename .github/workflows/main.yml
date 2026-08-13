@@ -146,16 +146,40 @@ jobs:
           kubectl --kubeconfig kubeconfig rollout status deployment/frontend -n student-2 --timeout=120s
           kubectl --kubeconfig kubeconfig rollout status deployment/redis -n student-2 --timeout=120s
 
+      - name: "Debug: show pods/service/endpoints and frontend logs"
+        run: |
+          echo "== pods =="; kubectl --kubeconfig kubeconfig get pods -n student-2 -o wide || true
+          echo "\n== services =="; kubectl --kubeconfig kubeconfig get svc -n student-2 || true
+          echo "\n== frontend service =="; kubectl --kubeconfig kubeconfig get svc frontend -n student-2 -o yaml || true
+          echo "\n== endpoints for frontend =="; kubectl --kubeconfig kubeconfig get endpoints frontend -n student-2 -o yaml || true
+          POD_NAME=$(kubectl --kubeconfig kubeconfig get pods -n student-2 -l app.kubernetes.io/name=frontend -o name 2>/dev/null | head -n1 | sed 's|pod/||') || true
+          if [ -n "$POD_NAME" ]; then
+            echo "\n== describe pod $POD_NAME =="; kubectl --kubeconfig kubeconfig describe pod "$POD_NAME" -n student-2 || true
+            echo "\n== logs from pod $POD_NAME (last 200 lines) =="; kubectl --kubeconfig kubeconfig logs "$POD_NAME" -n student-2 --tail=200 || true
+          else
+            echo "No frontend pod found by selector app.kubernetes.io/name=frontend"
+          fi
+
       - name: Smoke test deployed app
         run: |
           chmod +x scripts/smoke-test.sh
           kubectl --kubeconfig kubeconfig port-forward svc/frontend 8080:8080 -n student-2 >/tmp/frontend-portforward.log 2>&1 &
           echo $! > /tmp/frontend-portforward.pid
-          for i in {1..30}; do
-            curl -fsS http://127.0.0.1:8080/healthz >/dev/null && break
+          sleep 2
+          for i in {1..60}; do
+            if ! kill -0 $(cat /tmp/frontend-portforward.pid) 2>/dev/null; then
+              echo "port-forward process died, log:"; sed -n '1,200p' /tmp/frontend-portforward.log; exit 1
+            fi
+            if curl -fsS http://127.0.0.1:8080/healthz >/dev/null; then
+              echo "frontend is up"
+              break
+            fi
             sleep 2
           done
-          ./scripts/smoke-test.sh http://127.0.0.1:8080
+          if ! curl -fsS http://127.0.0.1:8080/healthz >/dev/null; then
+            echo "healthz failed, port-forward log:"; sed -n '1,200p' /tmp/frontend-portforward.log; exit 1
+          fi
+          ./scripts/smoke-test.sh http://127.0.0.1:8080 || (echo "smoke-test failed, port-forward log:"; sed -n '1,200p' /tmp/frontend-portforward.log; exit 1)
 
       - name: Clean up kubeconfig
         if: always()
