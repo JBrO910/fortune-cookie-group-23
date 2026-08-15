@@ -5,6 +5,8 @@ prometheusOperator:
     releaseNamespace: true
   admissionWebhooks:
     enabled: false
+  tls:
+    enabled: false
 
 alertmanager:
   enabled: false
